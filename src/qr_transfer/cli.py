@@ -80,7 +80,7 @@ def _cmd_encode(args: argparse.Namespace) -> None:
         anonymize_metadata=args.anonymize_metadata,
     )
     if not args.quiet:
-        print(f"Encoded to {args.output_video} ({result.frame_count} frames, {result.duration:.1f}s)")
+        print(f"Encoded to {args.output_video} ({result.frames} frames, {result.duration:.1f}s)")
 
 
 def _cmd_decode(args: argparse.Namespace) -> None:
