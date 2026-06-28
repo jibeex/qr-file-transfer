@@ -45,7 +45,7 @@ class Metadata:
             version=d.get("version", "1.0.0"),
             filename=f["name"],
             file_size=f["size"],
-            sha256=f["sha256"],
+            sha256=f.get("sha256") or f.get("hash", ""),
             total_chunks=t["total_chunks"],
             compressed=f.get("compressed", False),
         )
@@ -77,14 +77,17 @@ def _is_metadata(data: bytes) -> bool:
     return data.startswith(b"{")
 
 
+_CHUNK_STRUCT = struct.Struct(">4sBIIHIB")  # 20-byte header
+
 def _parse_chunk(data: bytes) -> tuple[int, int, bytes] | None:
     """Return (chunk_index, total_chunks, payload) or None if header/CRC invalid."""
     if len(data) < CHUNK_HEADER_SIZE or not data.startswith(CHUNK_MAGIC):
         return None
-    offset = len(CHUNK_MAGIC)
-    chunk_index, total_chunks, crc32_stored = struct.unpack_from(">III", data, offset)
-    payload = data[CHUNK_HEADER_SIZE:]
-    if IntegrityUtil.crc32(payload) != crc32_stored:
+    magic, version, chunk_index, total_chunks, data_length, crc32_stored, _ = _CHUNK_STRUCT.unpack_from(data)
+    if magic != CHUNK_MAGIC or version != 1:
+        return None
+    payload = data[CHUNK_HEADER_SIZE:CHUNK_HEADER_SIZE + data_length]
+    if len(payload) != data_length or IntegrityUtil.crc32(payload) != crc32_stored:
         return None
     return chunk_index, total_chunks, payload
 
@@ -111,13 +114,15 @@ class GracefulDegradation:
             else:
                 failed.append(i)
 
-        for i in failed:
-            gray = cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY)
-            denoised = cv2.bilateralFilter(gray, 9, 75, 75)
-            _, thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            qrs = detector.detect(cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR))
-            if qrs:
-                results.append((i, qrs))
+        if failed:
+            import cv2 as _cv2
+            for i in failed:
+                gray = _cv2.cvtColor(frames[i], _cv2.COLOR_BGR2GRAY)
+                denoised = _cv2.bilateralFilter(gray, 9, 75, 75)
+                _, thresh = _cv2.threshold(denoised, 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU)
+                qrs = detector.detect(_cv2.cvtColor(thresh, _cv2.COLOR_GRAY2BGR))
+                if qrs:
+                    results.append((i, qrs))
 
         return results
 

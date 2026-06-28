@@ -95,7 +95,7 @@ class FileEncoder:
             # 4. Build metadata
             metadata = Metadata(
                 file=FileMetadata(
-                    name=Path(input_path).name,
+                    name="anonymous" if anonymize_metadata else Path(input_path).name,
                     size=file_size,
                     hash=file_hash,
                     compressed=self.compression,

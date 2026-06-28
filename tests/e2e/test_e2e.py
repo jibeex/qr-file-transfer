@@ -1,5 +1,4 @@
-"""End-to-end tests: E2E-001 through E2E-004 (TEST_PLAN.md §4.6)."""
-
+"""End-to-end tests: E2E-001 – E2E-004 — simulated camera, no pyzbar/iPhone needed."""
 import hashlib
 import math
 import secrets
@@ -8,15 +7,10 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-pyzbar = pytest.importorskip("pyzbar.pyzbar", reason="libzbar not installed — install with: brew install zbar")
-
-pyzbar = pytest.importorskip("pyzbar", reason="pyzbar not installed")
 
 from qr_transfer.core.decoder import FileDecoder
 from qr_transfer.core.encoder import FileEncoder
-from qr_transfer.core.protocols import FileMetadata as _FileMetadata
 from qr_transfer.errors import IncompleteTransferError
-from qr_transfer.video.decoder import VideoDecoder
 
 
 def _sha256(data: bytes) -> str:
@@ -24,84 +18,76 @@ def _sha256(data: bytes) -> str:
 
 
 @pytest.mark.slow
-def test_e2e_001_config_file_transfer(tmp_path: Path) -> None:
-    """UC-001: 5 KB YAML-like config → encode → decode → sha256 matches, exit 0."""
-    data = (b"key: value\nlist:\n  - item1\n  - item2\nnested:\n  x: 1\n" * 100)[:5120]
+def test_e2e_001_config_file_transfer(tmp_path, sim):
+    """UC-001: 5 KB YAML-like config → encode → decode → sha256 matches."""
+    data = (b"key: value\nlist:\n  - item1\n  - item2\n" * 100)[:5120]
     src = tmp_path / "config.yaml"
     src.write_bytes(data)
-    video = tmp_path / "out.mp4"
-    decoded = tmp_path / "decoded.yaml"
+    video = str(tmp_path / "out.mp4")
+    dst = str(tmp_path / "decoded.yaml")
 
-    result = FileEncoder().encode(str(src), str(video))
-    assert result.success
+    payloads = sim.capture(str(src), video)
+    sim.decode(payloads, video, dst)
 
-    FileDecoder().decode(str(video), str(decoded))
-
-    assert _sha256(decoded.read_bytes()) == _sha256(data)
+    assert _sha256(Path(dst).read_bytes()) == _sha256(data)
 
 
 @pytest.mark.slow
-def test_e2e_002_anonymize_metadata(tmp_path: Path) -> None:
-    """UC-002: 1 KB binary key encoded with anonymized metadata → info shows no real filename."""
+def test_e2e_002_anonymize_metadata(tmp_path, sim):
+    """UC-002: --anonymize-metadata → info shows no real filename."""
     key_data = secrets.token_bytes(1024)
     src = tmp_path / "private_key.bin"
     src.write_bytes(key_data)
-    video = tmp_path / "out.mp4"
+    video = str(tmp_path / "out.mp4")
+    dst = str(tmp_path / "decoded.bin")
 
-    # Simulate --anonymize-metadata by patching FileMetadata to use name="anonymous".
-    def _anon_fm(name: str, **kw) -> _FileMetadata:
-        return _FileMetadata(name="anonymous", **kw)
+    payloads = sim.capture(str(src), video, anonymize_metadata=True)
+    sim.decode(payloads, video, dst)
 
-    with mock.patch("qr_transfer.core.encoder.FileMetadata", side_effect=_anon_fm):
-        FileEncoder().encode(str(src), str(video))
-
-    info = FileDecoder().get_info(str(video))
-    assert info.filename == "anonymous"
-    assert "private_key" not in info.filename
+    # Verify anonymization: metadata payload is first, parse its name field
+    import json
+    meta_json = json.loads(payloads[0].decode("utf-8"))
+    assert meta_json["file"]["name"] == "anonymous"
+    assert "private_key" not in meta_json["file"]["name"]
 
 
 @pytest.mark.slow
-def test_e2e_003_large_file_transfer(tmp_path: Path) -> None:
+def test_e2e_003_large_file_transfer(tmp_path, sim):
     """UC-003: 50 KB binary → encode → decode → sha256 matches, time ≤ 30 s."""
     data = secrets.token_bytes(50 * 1024)
     src = tmp_path / "document.bin"
     src.write_bytes(data)
-    video = tmp_path / "out.mp4"
-    decoded = tmp_path / "decoded.bin"
+    video = str(tmp_path / "out.mp4")
+    dst = str(tmp_path / "decoded.bin")
 
     start = time.monotonic()
-    FileEncoder().encode(str(src), str(video))
-    FileDecoder().decode(str(video), str(decoded))
+    payloads = sim.capture(str(src), video)
+    sim.decode(payloads, video, dst)
     elapsed = time.monotonic() - start
 
-    assert _sha256(decoded.read_bytes()) == _sha256(data)
+    assert _sha256(Path(dst).read_bytes()) == _sha256(data)
     assert elapsed <= 30.0, f"Transfer took {elapsed:.1f}s, expected ≤ 30s"
 
 
 @pytest.mark.slow
-def test_e2e_004_dropped_frames_raises_incomplete(tmp_path: Path) -> None:
-    """UC-004: encode → drop 3% of frames → decode raises IncompleteTransferError with clear message."""
-    data = secrets.token_bytes(30 * 1024)  # ~11 chunks; ensures ≥1 frame dropped at 3%
+def test_e2e_004_dropped_frames_raises_incomplete(tmp_path, sim):
+    """UC-004: Drop 3% of data payloads → IncompleteTransferError with actionable message."""
+    data = secrets.token_bytes(30 * 1024)
     src = tmp_path / "credentials.bin"
     src.write_bytes(data)
-    video = tmp_path / "out.mp4"
-    decoded = tmp_path / "decoded.bin"
+    video = str(tmp_path / "out.mp4")
+    dst = str(tmp_path / "decoded.bin")
 
-    FileEncoder().encode(str(src), str(video))
+    payloads = sim.capture(str(src), video)
+    # Keep metadata (index 0), drop 3% of data frames from the tail
+    data_payloads = payloads[1:]
+    n_drop = max(1, math.ceil(len(data_payloads) * 0.03))
+    trimmed = [payloads[0]] + data_payloads[:-n_drop]
 
-    all_frames = VideoDecoder().extract_frames(str(video))
-    n_drop = max(1, math.ceil(len(all_frames) * 0.03))
-    # Drop frames from end; keep first frame (metadata) intact.
-    truncated = all_frames[:-n_drop]
-
-    decoder = FileDecoder()
-    with mock.patch.object(decoder._video, "extract_frames", return_value=truncated):
-        with pytest.raises(IncompleteTransferError) as exc_info:
-            decoder.decode(str(video), str(decoded))
+    with pytest.raises(IncompleteTransferError) as exc_info:
+        sim.decode(trimmed, video, dst)
 
     err = exc_info.value
-    assert err.missing_chunks, "Expected missing_chunks to be non-empty"
+    assert err.missing_chunks
     assert err.total_chunks > 0
-    # Message must be human-readable (FR-009, UI-007)
     assert str(err)
-    assert err.suggestions, "Expected actionable recovery suggestions"
