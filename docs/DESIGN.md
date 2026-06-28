@@ -341,7 +341,7 @@ class QRGenerator:
 
 **Purpose**: Detect and decode QR codes from images.
 
-**Fulfills Requirements**: FR-006, FR-008
+**Fulfills Requirements**: FR-006, FR-008, NFR-006
 
 ```python
 class QRDetector:
@@ -910,7 +910,7 @@ Optimization: Streaming Architecture
 ├── Don't keep original file in memory after compression
 ├── Don't keep all QR frames in memory
 ├── Generate and encode frames one at a time
-└── Revised total: ~500 MB ✓
+└── Revised total: ~750 MB ✓ (well under 1 GB budget)
 """
 
 class StreamingEncoder:
@@ -1760,7 +1760,7 @@ class ErrorHandler:
 
 ### 8.3 Graceful Degradation
 
-**Fulfills Requirements**: NFR-007, FR-008
+**Fulfills Requirements**: NFR-007, NFR-006, FR-008
 
 ```python
 class GracefulDegradation:
@@ -2361,72 +2361,61 @@ PERFORMANCE_CONFIG = PerformanceConfig()
 
 ### 9.6 Testing Strategy
 
+**Fulfills Requirements**: NFR-005, NFR-006, NFR-007 (via testability design)  
+See full test specification: [docs/TEST_PLAN.md](../docs/TEST_PLAN.md)
+
+#### Testing Pyramid
+
+```
+          /\
+         /E2E\        10% — 4 use-case scenarios (UC-001–UC-004)
+        /------\
+       /  Integ  \    20% — encode/decode pipeline, error injection
+      /------------\
+     /     Unit     \  70% — component isolation, boundary values
+    /________________\
+```
+
+| Layer | Count target | Speed | Dependencies |
+|---|---|---|---|
+| Unit | ~60 tests | < 10s total | All mocked |
+| Integration | ~20 tests | < 60s total | Real libs, fake files |
+| E2E | 4 scenarios | < 5 min | Real libs, simulated video |
+| Hardware acceptance | 100 transfers | Manual | iPhone 16 + Mac |
+
+Coverage targets: core modules 90%, utils 80%, CLI 70%.
+
+#### Test Doubles Catalog
+
+| Component | Double type | Rationale |
+|---|---|---|
+| `QRGenerator` | Mock | OpenCV/qrcode are slow; unit tests must not encode real QR |
+| `QRDetector` | Stub returning `[QRData(data=chunk.pack())]` | pyzbar needs real images; isolation requires a stub |
+| `VideoEncoder` | Mock | cv2.VideoWriter is stateful and writes disk; mock in unit tests |
+| `VideoDecoder` | Fake (returns pre-built frame list) | Decouples frame generation from detection in integration tests |
+| `CompressionUtil` | Real | Pure Python, fast, no side effects — always use real |
+| `IntegrityUtil` | Real | Pure Python, fast, security-critical — never mock |
+| `InputValidator` | Real | Security boundary — never mock |
+| File system | `tmp_path` fixture (pytest) | Isolated temp dirs; no cleanup needed |
+| `ProgressTracker` | Null object (`quiet=True`) | Suppress progress in tests |
+
+#### Contract Tests (CLI interface — IR-001, IR-002)
+
+Every command must satisfy the contract independent of implementation:
+
 ```python
-"""
-Testing Architecture:
-─────────────────────────────────────────────────────────
+# Pattern: invoke CLI as subprocess, assert exit code + stdout/stderr split
+def run(args): subprocess.run(['qr-transfer'] + args, capture_output=True)
 
-UNIT TESTS (tests/unit/)
-  - Test individual components in isolation
-  - Mock external dependencies
-  - Fast execution (< 5 seconds total)
-  - 80%+ code coverage target
+# Exit code contract
+assert run(['encode', 'missing.txt', 'out.mp4']).returncode == 2   # ERROR_FILE_NOT_FOUND
+assert run(['encode', 'file.bin', 'out.mp4']).returncode == 0      # success
+assert run(['decode', 'bad.mp4', 'out.bin']).returncode == 5       # ERROR_DECODING_FAILED
 
-INTEGRATION TESTS (tests/integration/)
-  - Test component interactions
-  - Use real dependencies (not mocked)
-  - Test full encode/decode pipeline
-  - Performance benchmarks
-
-TEST FIXTURES (tests/fixtures/)
-  - Sample files (various types and sizes)
-  - Sample videos (known good/bad)
-  - Test data generators
-
-COVERAGE REQUIREMENTS:
-  - Core modules: 90%+ coverage
-  - Utility modules: 80%+ coverage
-  - CLI: 70%+ coverage (harder to test)
-"""
-
-# Example test structure
-# tests/unit/test_encoder.py
-
-import pytest
-from unittest.mock import Mock, patch
-from qr_transfer.core.encoder import FileEncoder
-from qr_transfer.errors import ValidationError
-
-class TestFileEncoder:
-    """Unit tests for FileEncoder."""
-    
-    def test_encoder_initialization(self):
-        """Test encoder initializes with valid parameters."""
-        encoder = FileEncoder(grid_size=800, fps=10)
-        assert encoder.grid_size == 800
-        assert encoder.fps == 10
-    
-    def test_encoder_rejects_invalid_grid_size(self):
-        """Test encoder rejects invalid grid size."""
-        with pytest.raises(ValidationError):
-            FileEncoder(grid_size=100)
-    
-    @patch('qr_transfer.core.encoder.QRGenerator')
-    @patch('qr_transfer.core.encoder.VideoEncoder')
-    def test_encode_pipeline(self, mock_video, mock_qr):
-        """Test encoding pipeline with mocked dependencies."""
-        encoder = FileEncoder()
-        # Setup mocks
-        mock_qr.return_value.generate.return_value = Mock()
-        mock_video.return_value.create.return_value = Mock(duration=10)
-        
-        # Test
-        result = encoder.encode('test.txt', 'output.mp4')
-        
-        # Verify
-        assert result.success
-        mock_qr.return_value.generate.assert_called()
-        mock_video.return_value.create.assert_called_once()
+# Stream contract
+result = run(['encode', 'missing.txt', 'out.mp4'])
+assert result.stdout == b''          # normal output only on success
+assert b'Cannot find' in result.stderr  # errors to stderr only
 ```
 
 
@@ -2618,6 +2607,31 @@ This design document provides a comprehensive technical blueprint for implementi
 - Swap implementations without changing pipeline logic
 - Enables mocking in tests without patching library internals
 
+### 13.6 Accessibility (CR-002 — WCAG 2.1 Level A)
+
+**Fulfills Requirements**: CR-002
+
+Rules applied across all CLI output:
+
+**No color as sole status indicator**
+- Progress bars use `[████░░░]` fill characters, not color alone
+- Success/failure prefixed with `✓` / `✗` symbols, not just green/red
+- Error severity conveyed by message structure, not color
+
+**Screen reader compatibility**
+- All output to stdout/stderr is plain text — no ANSI-only escape sequences that leave unreadable characters in non-color terminals
+- Progress updates overwrite the same line (carriage return) rather than flooding — disable with `--quiet` for accessibility tools that can't handle in-place updates
+- `--quiet` flag produces minimal output; `--verbose` produces fully structured lines suitable for parsing
+
+**Readability**
+- Help text (`--help`) written at Flesch-Kincaid Grade 8 or below — short sentences, common words, active voice
+- Error messages follow the template: What failed → Why → How to fix (see §8.4)
+- No jargon without definition; technical terms explained in parentheses
+
+**Verification**
+- Help text passes Flesch-Kincaid test before release (acceptance criterion AC-CR-002)
+- Output tested with VoiceOver (macOS) as part of release checklist
+
 ---
 
 ## Revision History
@@ -2625,7 +2639,7 @@ This design document provides a comprehensive technical blueprint for implementi
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0.0 | 2026-06-28 | System | Complete technical design specification |
-| 1.1.0 | 2026-06-28 | Kiro | Added arc42 ownership metadata, quality scenarios (§12), cross-cutting concerns (§13); extracted wire format and CLI spec to docs/specs/; ADRs to docs/adr/ |
+| 1.2.0 | 2026-06-28 | Kiro | Fixed design gaps: NFR-006 annotations, §6.3 memory budget clarified, §13.6 accessibility (CR-002) added |
 
 ---
 
