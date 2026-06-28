@@ -16,24 +16,29 @@ class QRDetector:
 
     def detect(self, frame: np.ndarray) -> list[QRData]:
         gray = self._cv2.cvtColor(frame, self._cv2.COLOR_BGR2GRAY)
-        enhanced = self._enhance_contrast(gray)
-        # Try multiple scales — cv2 QRCodeDetector struggles with large QR codes
-        for scale in (0.4, 0.25, 0.6, 1.0):
-            h, w = enhanced.shape
-            resized = self._cv2.resize(enhanced, (int(w * scale), int(h * scale)))
-            ok, decoded_list, *_ = self._detector.detectAndDecodeMulti(resized)
-            if ok and any(decoded_list):
-                results = []
-                for s in decoded_list:
-                    if not s:
-                        continue
-                    try:
-                        raw = base64.b64decode(s.encode("latin-1"))
-                        results.append(QRData(data=raw, type="QRCODE", rect=None))
-                    except Exception:
-                        pass
-                if results:
-                    return results
+        # Try two preprocessing paths × multiple scales
+        candidates = [
+            self._enhance_contrast(gray),          # CLAHE
+            self._cv2.threshold(gray, 0, 255,       # Otsu binary
+                self._cv2.THRESH_BINARY + self._cv2.THRESH_OTSU)[1],
+        ]
+        for img in candidates:
+            for scale in (0.4, 0.5, 0.35, 0.6):
+                h, w = img.shape
+                resized = self._cv2.resize(img, (int(w * scale), int(h * scale)))
+                ok, decoded_list, *_ = self._detector.detectAndDecodeMulti(resized)
+                if ok and any(decoded_list):
+                    results = []
+                    for s in decoded_list:
+                        if not s:
+                            continue
+                        try:
+                            raw = base64.b64decode(s.encode("latin-1"))
+                            results.append(QRData(data=raw, type="QRCODE", rect=None))
+                        except Exception:
+                            pass
+                    if results:
+                        return results
         return []
 
     def _enhance_contrast(self, img: np.ndarray) -> np.ndarray:
