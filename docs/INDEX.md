@@ -14,8 +14,14 @@
 | [GLOSSARY.md](./GLOSSARY.md) | Shared term definitions | All | ✅ Complete |
 | [TEST_PLAN.md](./TEST_PLAN.md) | Test strategy and acceptance criteria | QA, developers | ✅ Draft complete |
 | [OPS_GUIDE.md](./OPS_GUIDE.md) | Install, configure, troubleshoot | IT Operations, users | ✅ Draft complete |
-| [DOCUMENTATION_GUIDELINES.md](./DOCUMENTATION_GUIDELINES.md) | ~~Documentation standards~~ | — | ⚠️ Superseded → see [CONTRIBUTING.md](../CONTRIBUTING.md) |
-| [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) | ~~Project overview~~ | — | ⚠️ Superseded → see [README.md](../README.md) |
+
+---
+
+## Project Management
+
+| Document | Purpose |
+|---|---|
+| [ROADMAP.md](../ROADMAP.md) | Week-by-week implementation plan, risk register, success criteria |
 
 ---
 

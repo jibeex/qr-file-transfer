@@ -87,6 +87,7 @@ qr-transfer --help
 
 | Document | Purpose |
 |---|---|
+| [ROADMAP.md](./ROADMAP.md) | Implementation plan (phases, risk register) |
 | [docs/REQUIREMENTS.md](./docs/REQUIREMENTS.md) | What the system must do (IEEE 29148) |
 | [docs/DESIGN.md](./docs/DESIGN.md) | How it works (arc42 architecture) |
 | [docs/adr/](./docs/adr/) | Architecture decisions (why each choice was made) |
