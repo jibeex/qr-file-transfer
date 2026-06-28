@@ -1,6 +1,7 @@
 """QR code image generation."""
 
 from __future__ import annotations
+import base64
 
 import qrcode
 import qrcode.exceptions
@@ -27,7 +28,7 @@ class QRGenerator:
             border=4,
         )
         try:
-            qr.add_data(data)
+            qr.add_data(base64.b64encode(data))
             qr.make(fit=True)
         except qrcode.exceptions.DataOverflowError as exc:
             raise QRGenerationError(f"Data too large for QR code: {exc}") from exc
