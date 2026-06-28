@@ -51,3 +51,4 @@ examples/test_files/*
 # Temporary files
 *.tmp
 *.log
+.claude/

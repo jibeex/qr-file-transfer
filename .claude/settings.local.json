@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Skill(deep-research)",
-      "Bash(git add *)",
-      "Bash(git commit -m ' *)"
-    ]
-  }
-}
