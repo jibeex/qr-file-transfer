@@ -110,11 +110,10 @@ qr-transfer --help
 ## Development
 
 ```bash
-# Run tests (no hardware needed — software simulation)
-PYTHONPATH=src pytest tests/unit tests/contract tests/security tests/integration tests/e2e -q
+# Run tests (no hardware and no system dependencies needed)
+PYTHONPATH=src pytest tests/ -q
 
-# All 120 tests pass without an iPhone (camera capture simulated in software)
-# Integration/pipeline tests also require: brew install zbar (macOS) / apt install libzbar0 (Linux)
+# All 120 tests pass using software simulation — no iPhone, no libzbar required
 ```
 
 ---
