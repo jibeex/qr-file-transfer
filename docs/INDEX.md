@@ -48,6 +48,7 @@ Stable, lookup-oriented reference docs. Updated only when the contract changes.
 |---|---|
 | [cli-reference.md](./specs/cli-reference.md) | All commands, flags, exit codes |
 | [data-protocol.md](./specs/data-protocol.md) | Chunk binary format, metadata JSON schema |
+| [algorithms.md](./specs/algorithms.md) | Encoding/decoding pipeline, chunking, QR capacity |
 
 ---
 
