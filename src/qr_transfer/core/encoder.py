@@ -55,11 +55,13 @@ class FileEncoder:
         fps: int = DEFAULT_FPS,
         compression: bool = True,
         quiet: bool = False,
+        redundancy: int = 3,
     ) -> None:
         self.grid_size = InputValidator.validate_grid_size(grid_size)
         self.fps = InputValidator.validate_fps(fps)
         self.compression = compression
         self.quiet = quiet
+        self.redundancy = max(1, redundancy)
         self.qr_generator = QRGenerator(grid_size)
         self.video_encoder = VideoEncoder(fps)
 
@@ -135,7 +137,9 @@ class FileEncoder:
         )
 
     def _frame_stream(self, metadata: Metadata, chunks: list[Chunk]) -> Generator:
-        """Yield QR frames one at a time: metadata frame first, then data chunk frames."""
+        """Yield QR frames: metadata once, each data chunk self.redundancy times."""
         yield self.qr_generator.generate(metadata.to_json().encode())
         for chunk in chunks:
-            yield self.qr_generator.generate(chunk.pack())
+            frame = self.qr_generator.generate(chunk.pack())
+            for _ in range(self.redundancy):
+                yield frame
