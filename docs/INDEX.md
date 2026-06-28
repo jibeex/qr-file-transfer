@@ -10,7 +10,7 @@
 | Document | Purpose | Audience | Status |
 |---|---|---|---|
 | [REQUIREMENTS.md](./REQUIREMENTS.md) | **WHAT** — user requirements (IEEE 29148) | Product owners, QA, stakeholders | ✅ Draft complete |
-| [DESIGN.md](./DESIGN.md) | **HOW** — architecture and component design (arc42) | Developers, architects | ⚠️ In progress |
+| [DESIGN.md](./DESIGN.md) | **HOW** — architecture and component design (arc42) | Developers, architects | ✅ Draft complete |
 | [GLOSSARY.md](./GLOSSARY.md) | Shared term definitions | All | ✅ Complete |
 | [TEST_PLAN.md](./TEST_PLAN.md) | Test strategy and acceptance criteria | QA, developers | ✅ Draft complete |
 | [OPS_GUIDE.md](./OPS_GUIDE.md) | Install, configure, troubleshoot | IT Operations, users | ✅ Draft complete |
@@ -37,6 +37,9 @@ One immutable file per architecture decision. Written when a choice is made; nev
 | [004](./adr/004-compression.md) | Data Compression (gzip, Level 6) | Accepted |
 | [005](./adr/005-integrity-algorithm.md) | Integrity Verification (SHA-256 + CRC32) | Accepted |
 | [006](./adr/006-max-file-size.md) | Maximum Input File Size (1 GB) | Accepted |
+| [007](./adr/007-cli-framework.md) | CLI Framework (argparse) | Accepted |
+| [008](./adr/008-qr-library.md) | QR Code Generation Library (qrcode) | Accepted |
+| [009](./adr/009-progress-library.md) | Progress Display Library (tqdm) | Accepted |
 
 ---
 

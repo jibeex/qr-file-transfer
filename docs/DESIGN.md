@@ -686,9 +686,38 @@ class ProgressTracker:
         self.close()
 ```
 
----
+### 2.8 CLI Component (`cli.py`)
 
-## 3. Data Structures & Protocols
+**Purpose**: Parse arguments, route to pipeline, translate exceptions to exit codes.
+
+**Fulfills Requirements**: FR-002, FR-011, FR-012, FR-013, IR-001, IR-002 (see ADR-007)
+
+```python
+def main():
+    parser = build_parser()           # argparse with subcommands
+    args = parser.parse_args()
+    try:
+        result = dispatch(args)       # route to pipeline function
+        print_result(result)
+        sys.exit(0)
+    except QRTransferError as e:
+        print(e.message, file=sys.stderr)
+        sys.exit(e.error_code)        # always IR-002 exit code
+
+def dispatch(args):
+    match args.command:
+        case 'encode':        return encode_file(args.input, args.output, ...)
+        case 'decode':        return decode_file(args.input, args.output, ...)
+        case 'verify':        return verify_video(args.input, ...)
+        case 'info':          return get_info(args.input)
+        case 'secure-delete': return secure_delete_files(args.files)
+```
+
+**`secure-delete` command** — owned by `FileOps` (§7.6). CLI calls `FileOps.secure_delete(path)` for each path argument. No encoding/decoding; purely a convenience wrapper around the secure deletion utility so users don't need external tools after a sensitive transfer.
+
+**Error translation rule**: every `QRTransferError` subclass carries `error_code` (IR-002). CLI catches only `QRTransferError`; all other exceptions propagate as `ERROR_GENERAL` (exit code 1) after logging to stderr.
+
+---
 
 > **Extracted to canonical reference docs** — edit those files, not this section.
 
@@ -814,7 +843,7 @@ pip install opencv-python qrcode[pil] pyzbar pillow numpy tqdm
 **Fulfills Requirements**: NFR-024
 
 ```python
-# pyproject.toml or setup.py
+# pyproject.toml (PEP 621)
 dependencies = [
     "opencv-python>=4.5.0,<5.0.0",     # Major version lock
     "qrcode[pil]>=7.3,<8.0",           # QR generation
@@ -2087,8 +2116,8 @@ qr-file-transfer/
 ├── docs/                       # Documentation
 │   ├── REQUIREMENTS.md         # Requirements specification
 │   ├── DESIGN.md              # This document
-│   ├── API.md                 # API documentation
-│   └── CONTRIBUTING.md        # Contribution guidelines
+│   ├── adr/                   # Architecture Decision Records
+│   └── specs/                 # Wire format + CLI reference
 │
 ├── scripts/                    # Utility scripts
 │   ├── benchmark.py           # Performance benchmarking
@@ -2098,10 +2127,9 @@ qr-file-transfer/
 │   └── workflows/
 │       └── ci.yml             # CI/CD pipeline
 │
-├── pyproject.toml             # Project configuration (PEP 621)
-├── setup.py                   # Setup script
-├── requirements.txt           # Dependencies
-├── requirements-dev.txt       # Development dependencies
+├── pyproject.toml             # Project config, deps, entry point (PEP 621)
+├── requirements.txt           # Legacy — use pyproject.toml instead
+├── requirements-dev.txt       # Legacy — use pyproject.toml [dev] instead
 ├── README.md                  # User documentation
 ├── LICENSE                    # License file
 └── .gitignore                # Git ignore rules

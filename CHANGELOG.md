@@ -11,15 +11,28 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Requirements specification (IEEE 29148) — `docs/REQUIREMENTS.md`
-- Technical design document (arc42) — `docs/DESIGN.md`
-- Architecture Decision Records — `docs/adr/`
-- Wire format and CLI reference specs — `docs/specs/`
-- CONTRIBUTING.md, SECURITY.md, CHANGELOG.md
+- Technical design (arc42) — `docs/DESIGN.md` with quality scenarios, cross-cutting concerns, accessibility
+- Architecture Decision Records (ADR-001–009) — `docs/adr/`
+- Wire format, CLI reference, and algorithms specs — `docs/specs/`
+- Test design spec with requirements traceability matrix and E2E suite — `docs/TEST_PLAN.md`
+- Operations guide — `docs/OPS_GUIDE.md`
+- Glossary — `docs/GLOSSARY.md`
+- ROADMAP.md — implementation phases and risk register
+- `pyproject.toml` — package metadata and `qr-transfer` entry point (NFR-023)
+- `.github/dependabot.yml` — automated dependency updates (SEC-004)
+- CONTRIBUTING.md, CHANGELOG.md, SECURITY.md, LICENSE (MIT)
 
 ### Changed
-- Restructured documentation following Divio/arc42/ADR best practices
+- Restructured docs following Divio/arc42/ADR best practices
 - Moved decision log from REQUIREMENTS.md to individual ADR files
-- Extracted glossary to standalone `docs/GLOSSARY.md`
+- Extracted glossary, algorithms, wire format to standalone files
+- Resolved all 47 GAP_ANALYSIS.md items; file removed
+- Fixed chunk header size (16 → 20 bytes) across DESIGN.md and specs/
+- Updated `mp4v` codec documentation to reflect MPEG-4/H.264 dual support
+
+### Removed
+- `docs/GAP_ANALYSIS.md` — all gaps resolved or tracked
+- `requirements.txt` — superseded by `pyproject.toml`
 
 ---
 
