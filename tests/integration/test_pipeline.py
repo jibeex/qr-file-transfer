@@ -1,7 +1,6 @@
 """Integration tests: IT-001 – IT-009 — simulated camera, no pyzbar/iPhone needed."""
 from __future__ import annotations
 
-import hashlib
 import random
 import secrets
 from pathlib import Path
@@ -12,8 +11,8 @@ from qr_transfer.core.encoder import FileEncoder
 from qr_transfer.errors import FileIntegrityError, IncompleteTransferError
 
 
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+from qr_transfer.utils.integrity import IntegrityUtil as _I
+_sha256 = _I.sha256
 
 
 def _roundtrip(data: bytes, tmp_path: Path, sim, suffix: str = ".bin", **enc_kw) -> bytes:

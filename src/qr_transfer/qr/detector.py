@@ -29,6 +29,3 @@ class QRDetector:
     def _enhance_contrast(self, img: np.ndarray) -> np.ndarray:
         return self._clahe.apply(img)
 
-
-class CachedQRDetector(QRDetector):
-    """Reuses CLAHE instance across calls (identical to base — CLAHE already cached)."""

@@ -101,8 +101,7 @@ def _cmd_verify(args: argparse.Namespace) -> None:
 
     decoder = FileDecoder()
     result = decoder.verify(input_path=args.input_video, detailed=args.detailed)
-    pct = (result.decoded_chunks / result.total_chunks * 100) if result.total_chunks else 0.0
-    print(f"{result.decoded_chunks}/{result.total_chunks} chunks found ({pct:.1f}% complete)")
+    print(f"{result.decoded_chunks}/{result.total_chunks} chunks found ({(result.decoded_chunks / result.total_chunks * 100) if result.total_chunks else 0.0:.1f}% complete)")
     if args.detailed and result.missing:
         print(f"Missing chunks: {result.missing}")
 

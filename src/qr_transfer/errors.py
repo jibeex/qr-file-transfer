@@ -97,7 +97,6 @@ class IncompleteTransferError(DecodingError):
         self.total_chunks = total_chunks
         self.decoded_chunks = total_chunks - len(missing_chunks)
         self.completion_percent = (self.decoded_chunks / total_chunks * 100) if total_chunks else 0.0
-
         suggestions = [
             "Re-record the video with better lighting",
             "Keep camera steady at 20-40cm distance",
@@ -112,8 +111,7 @@ class IncompleteTransferError(DecodingError):
             f"  Missing chunk IDs: {missing_preview}"
             + ("..." if len(missing_chunks) > 20 else "")
         )
-        # Bypass DecodingError.__init__ to set error_code directly via base
-        QRTransferError.__init__(self, message, error_code=5, suggestions=suggestions, details=details)
+        super().__init__(message, suggestions=suggestions, details=details)
 
 
 class DecompressionError(DecodingError):

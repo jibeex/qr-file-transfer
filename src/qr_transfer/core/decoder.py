@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from qr_transfer.constants import CHUNK_HEADER_SIZE, CHUNK_MAGIC
-from qr_transfer.core.protocols import QRData
+from qr_transfer.core.protocols import Chunk, QRData
 from qr_transfer.errors import (
     DecodingError,
     FileIntegrityError,
@@ -45,7 +45,7 @@ class Metadata:
             version=d.get("version", "1.0.0"),
             filename=f["name"],
             file_size=f["size"],
-            sha256=f.get("sha256") or f.get("hash", ""),
+            sha256=f.get("hash", ""),
             total_chunks=t["total_chunks"],
             compressed=f.get("compressed", False),
         )
@@ -77,19 +77,7 @@ def _is_metadata(data: bytes) -> bool:
     return data.startswith(b"{")
 
 
-_CHUNK_STRUCT = struct.Struct(">4sBIIHIB")  # 20-byte header
 
-def _parse_chunk(data: bytes) -> tuple[int, int, bytes] | None:
-    """Return (chunk_index, total_chunks, payload) or None if header/CRC invalid."""
-    if len(data) < CHUNK_HEADER_SIZE or not data.startswith(CHUNK_MAGIC):
-        return None
-    magic, version, chunk_index, total_chunks, data_length, crc32_stored, _ = _CHUNK_STRUCT.unpack_from(data)
-    if magic != CHUNK_MAGIC or version != 1:
-        return None
-    payload = data[CHUNK_HEADER_SIZE:CHUNK_HEADER_SIZE + data_length]
-    if len(payload) != data_length or IntegrityUtil.crc32(payload) != crc32_stored:
-        return None
-    return chunk_index, total_chunks, payload
 
 
 # ---------------------------------------------------------------------------
@@ -228,11 +216,12 @@ class FileDecoder:
                         except (KeyError, json.JSONDecodeError):
                             pass
                     continue
-                parsed = _parse_chunk(qr.data)
-                if parsed is not None:
-                    chunk_index, _total, payload = parsed
-                    if chunk_index not in chunks:
-                        chunks[chunk_index] = payload
+                try:
+                    chunk = Chunk.unpack(qr.data)
+                    if chunk.header.chunk_index not in chunks:
+                        chunks[chunk.header.chunk_index] = chunk.data
+                except (ValueError, Exception):
+                    pass
 
         return metadata, chunks
 

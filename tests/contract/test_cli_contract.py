@@ -1,3 +1,4 @@
+import os
 """CLI contract tests — CT-001 through CT-011 (IR-001, IR-002)."""
 import subprocess
 import sys
@@ -13,7 +14,7 @@ ENV_PATH = "src"
 
 def cli(*args, input_data=None, cwd=None):
     env = {"PYTHONPATH": ENV_PATH}
-    import os; full_env = {**os.environ, **env}
+    full_env = {**os.environ, **env}
     return subprocess.run(
         [PYTHON, "-m", "qr_transfer.cli", *args],
         capture_output=True, cwd=cwd or ".", env=full_env

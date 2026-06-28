@@ -1,5 +1,4 @@
 """End-to-end tests: E2E-001 – E2E-004 — simulated camera, no pyzbar/iPhone needed."""
-import hashlib
 import math
 import secrets
 import time
@@ -13,8 +12,8 @@ from qr_transfer.core.encoder import FileEncoder
 from qr_transfer.errors import IncompleteTransferError
 
 
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+from qr_transfer.utils.integrity import IntegrityUtil as _I
+_sha256 = _I.sha256
 
 
 @pytest.mark.slow

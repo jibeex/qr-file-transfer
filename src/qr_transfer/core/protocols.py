@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import struct
-import zlib
 from dataclasses import dataclass
 from typing import Any
 
 from qr_transfer.constants import CHUNK_HEADER_SIZE, CHUNK_MAGIC, PROTOCOL_VERSION
+from qr_transfer.utils.integrity import IntegrityUtil
 
 
 @dataclass
@@ -52,7 +52,7 @@ class Chunk:
     data: bytes
 
     def pack(self) -> bytes:
-        crc = zlib.crc32(self.data) & 0xFFFFFFFF
+        crc = IntegrityUtil.crc32(self.data)
         return _HEADER_STRUCT.pack(
             CHUNK_MAGIC,
             1,  # version
@@ -75,7 +75,7 @@ class Chunk:
         data = raw[CHUNK_HEADER_SIZE:CHUNK_HEADER_SIZE + data_length]
         if len(data) != data_length:
             raise ValueError("Truncated chunk payload")
-        actual_crc = zlib.crc32(data) & 0xFFFFFFFF
+        actual_crc = IntegrityUtil.crc32(data)
         if actual_crc != crc32:
             raise ValueError(f"CRC mismatch: expected {crc32:#010x}, got {actual_crc:#010x}")
         return cls(

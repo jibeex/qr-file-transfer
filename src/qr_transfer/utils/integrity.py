@@ -1,8 +1,6 @@
 import hashlib
 import zlib
 
-from qr_transfer.constants import ERROR_INTEGRITY_FAILED  # noqa: F401
-
 
 class IntegrityUtil:
     """Handles cryptographic hashing and verification."""
