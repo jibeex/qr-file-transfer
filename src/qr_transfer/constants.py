@@ -24,7 +24,7 @@ MAX_FPS: Final[int] = 30
 DEFAULT_FPS: Final[int] = 10
 
 # Chunk Parameters
-MAX_CHUNK_SIZE: Final[int] = 2100  # bytes (base64-encoded in QR → fits QR v40-L capacity)
+MAX_CHUNK_SIZE: Final[int] = 500   # bytes (cv2 QRCodeDetector reliable up to QR v15)
 CHUNK_HEADER_SIZE: Final[int] = 20  # bytes: 4+1+4+4+2+4+1 ('>4sBIIHIB')
 CHUNK_MAGIC: Final[bytes] = b'QRFT'
 
