@@ -137,9 +137,8 @@ class FileEncoder:
         )
 
     def _frame_stream(self, metadata: Metadata, chunks: list[Chunk]) -> Generator:
-        """Yield QR frames: metadata once, each data chunk self.redundancy times."""
+        """Yield QR frames: metadata once, each chunk self.redundancy times with different mask patterns."""
         yield self.qr_generator.generate(metadata.to_json().encode())
         for chunk in chunks:
-            frame = self.qr_generator.generate(chunk.pack())
-            for _ in range(self.redundancy):
-                yield frame
+            for i in range(self.redundancy):
+                yield self.qr_generator.generate(chunk.pack(), mask_pattern=i % 8)

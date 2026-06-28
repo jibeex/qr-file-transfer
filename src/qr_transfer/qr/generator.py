@@ -19,13 +19,14 @@ class QRGenerator:
             raise ValueError(f"Grid size must be {MIN_GRID_SIZE}-{MAX_GRID_SIZE}")
         self.grid_size = grid_size
 
-    def generate(self, data: bytes) -> Image.Image:
+    def generate(self, data: bytes, mask_pattern: int | None = None) -> Image.Image:
         """Generate a QR code image resized to grid_size×grid_size."""
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
             box_size=1,
             border=4,
+            mask_pattern=mask_pattern,
         )
         try:
             qr.add_data(base64.b64encode(data))
