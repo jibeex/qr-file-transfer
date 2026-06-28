@@ -35,6 +35,12 @@ sudo apt-get install libzbar0 && pip install qr-transfer
 pip install qr-transfer
 ```
 
+> **Note**: Not yet published to PyPI. Install from source until v1.0 release:
+> ```bash
+> git clone git@github.com:jibeex/qr-file-transfer.git && cd qr-file-transfer
+> pip install -e ".[dev]"
+> ```
+
 Requires Python 3.9+.
 
 ---
@@ -101,8 +107,20 @@ qr-transfer --help
 
 ---
 
+## Development
+
+```bash
+# Run tests (no hardware needed — software simulation)
+PYTHONPATH=src pytest tests/unit tests/contract tests/security tests/integration tests/e2e -q
+
+# All 120 tests pass without an iPhone (camera capture simulated in software)
+# Integration/pipeline tests also require: brew install zbar (macOS) / apt install libzbar0 (Linux)
+```
+
+---
+
 ## Status
 
-**Implementation**: Not started — documentation phase  
-**Version**: 0.1.0 (pre-release)  
+**Implementation**: ✅ Complete — 15 source modules, 120 tests passing  
+**Version**: 0.1.0 (pre-release, not yet on PyPI)  
 **License**: [MIT](./LICENSE)
