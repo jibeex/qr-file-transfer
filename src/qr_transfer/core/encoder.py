@@ -137,8 +137,29 @@ class FileEncoder:
         )
 
     def _frame_stream(self, metadata: Metadata, chunks: list[Chunk]) -> Generator:
-        """Yield QR frames: metadata once, each chunk self.redundancy times with different mask patterns."""
+        """Yield QR frames: metadata once, each chunk self.redundancy times.
+
+        For each chunk, find the first mask pattern cv2 can detect from the raw
+        frame, then write that verified mask self.redundancy times.  This
+        eliminates blind trial-and-error at decode time.
+        """
+        import cv2
+        import numpy as np
+        from qr_transfer.qr.detector import QRDetector
+        detector = QRDetector()
+
         yield self.qr_generator.generate(metadata.to_json().encode())
+
         for chunk in chunks:
-            for i in range(self.redundancy):
-                yield self.qr_generator.generate(chunk.pack(), mask_pattern=i % 8)
+            data = chunk.pack()
+            verified = None
+            for mask in range(8):
+                pil = self.qr_generator.generate(data, mask_pattern=mask)
+                frame = cv2.cvtColor(np.array(pil.convert("RGB")), cv2.COLOR_RGB2BGR)
+                if detector.detect(frame):
+                    verified = pil
+                    break
+            if verified is None:
+                verified = self.qr_generator.generate(data, mask_pattern=0)
+            for _ in range(self.redundancy):
+                yield verified
