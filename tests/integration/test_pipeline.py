@@ -52,11 +52,10 @@ def test_it005_frames_removed(tmp_path, sim):
     dst = str(tmp_path / "decoded.bin")
 
     payloads = sim.capture(str(src), video)
-    # payload[0] is metadata; keep it, drop 5% of data frames
-    data_payloads = payloads[1:]
-    n_drop = max(1, int(len(data_payloads) * 0.05))
-    drop_idx = set(random.sample(range(len(data_payloads)), n_drop))
-    reduced = [payloads[0]] + [p for i, p in enumerate(data_payloads) if i not in drop_idx]
+    # payload[0] is metadata; drop ALL copies of at least one chunk
+    # With redundancy=3: payloads are [meta, c0m0, c0m1, c0m2, c1m0, c1m1, c1m2, ...]
+    # Drop ALL payloads for the last chunk (last 3 entries)
+    reduced = payloads[:-3]  # remove last chunk's 3 copies
 
     with pytest.raises(IncompleteTransferError) as exc_info:
         sim.decode(reduced, video, dst)
@@ -92,11 +91,11 @@ def test_it008_integrity_tamper(tmp_path, sim):
     dst = str(tmp_path / "decoded.bin")
 
     payloads = sim.capture(str(src), video)
-    # Corrupt the last data payload's bytes (flip a byte)
-    if len(payloads) > 1:
-        bad = bytearray(payloads[-1])
-        bad[-1] ^= 0xFF
-        payloads[-1] = bytes(bad)
+    # Corrupt ALL 3 copies of the last chunk (last 3 payloads)
+    for idx in range(1, min(4, len(payloads))):
+        bad = bytearray(payloads[-idx])
+        bad[20] ^= 0xFF  # flip byte in data region (after 20-byte header)
+        payloads[-idx] = bytes(bad)
 
     with pytest.raises((FileIntegrityError, IncompleteTransferError)):
         sim.decode(payloads, video, dst)
