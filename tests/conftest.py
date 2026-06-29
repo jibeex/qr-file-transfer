@@ -40,9 +40,9 @@ def capture_payloads(src: str, video: str,
     OrigQRGen = _gen_mod.QRGenerator
 
     class CapturingQRGen(OrigQRGen):
-        def generate(self, data: bytes):
+        def generate(self, data: bytes, **kw):
             captured.append(data)
-            return super().generate(data)
+            return super().generate(data, **kw)
 
     with mock.patch.object(_gen_mod, "QRGenerator", CapturingQRGen), \
          mock.patch("qr_transfer.core.encoder.QRGenerator", CapturingQRGen):
