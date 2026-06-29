@@ -55,7 +55,7 @@ def test_it005_frames_removed(tmp_path, sim):
     # payload[0] is metadata; drop ALL copies of at least one chunk
     # With redundancy=3: payloads are [meta, c0m0, c0m1, c0m2, c1m0, c1m1, c1m2, ...]
     # Drop ALL payloads for the last chunk (last 3 entries)
-    reduced = payloads[:-3]  # remove last chunk's 3 copies
+    reduced = payloads[:-6]  # remove last chunk's 6 copies (redundancy=6)
 
     with pytest.raises(IncompleteTransferError) as exc_info:
         sim.decode(reduced, video, dst)
@@ -91,8 +91,8 @@ def test_it008_integrity_tamper(tmp_path, sim):
     dst = str(tmp_path / "decoded.bin")
 
     payloads = sim.capture(str(src), video)
-    # Corrupt ALL 3 copies of the last chunk (last 3 payloads)
-    for idx in range(1, min(4, len(payloads))):
+    # Corrupt ALL 6 copies of the last chunk (last 6 payloads)
+    for idx in range(1, min(7, len(payloads))):
         bad = bytearray(payloads[-idx])
         bad[20] ^= 0xFF  # flip byte in data region (after 20-byte header)
         payloads[-idx] = bytes(bad)
