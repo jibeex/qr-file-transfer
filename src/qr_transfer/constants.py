@@ -21,10 +21,10 @@ DEFAULT_GRID_SIZE: Final[int] = 800
 # Video Parameters
 MIN_FPS: Final[int] = 5
 MAX_FPS: Final[int] = 30
-DEFAULT_FPS: Final[int] = 10
+DEFAULT_FPS: Final[int] = 30
 
 # Chunk Parameters
-MAX_CHUNK_SIZE: Final[int] = 500   # bytes (cv2 QRCodeDetector reliable up to QR v15)
+MAX_CHUNK_SIZE: Final[int] = 700   # bytes (zxingcpp reliably decodes up to QR v25 at 800px)
 CHUNK_HEADER_SIZE: Final[int] = 20  # bytes: 4+1+4+4+2+4+1 ('>4sBIIHIB')
 CHUNK_MAGIC: Final[bytes] = b'QRFT'
 

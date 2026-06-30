@@ -24,8 +24,8 @@ def _build_parser() -> argparse.ArgumentParser:
     enc.add_argument("output_video", help="Path for the output video file.")
     enc.add_argument("-g", "--grid-size", type=int, default=800, metavar="SIZE",
                      help="QR code grid size in modules (177–1000, default: 800).")
-    enc.add_argument("-f", "--fps", type=int, default=10, metavar="RATE",
-                     help="Video frame rate (5–30, default: 10).")
+    enc.add_argument("-f", "--fps", type=int, default=30, metavar="RATE",
+                     help="Video frame rate (5–30, default: 30).")
     enc.add_argument("--no-compress", action="store_true",
                      help="Skip gzip compression.")
     enc.add_argument("--anonymize-metadata", action="store_true",

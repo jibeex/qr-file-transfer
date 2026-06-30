@@ -6,13 +6,11 @@ from qr_transfer.core.protocols import VideoInfo
 
 
 class VideoDecoder:
-    def extract_frames(self, video_path: str, sample_rate: int = 1) -> list[np.ndarray]:
-        """Extract frames from video, returning every sample_rate-th frame."""
+    def iter_frames(self, video_path: str, sample_rate: int = 1):
+        """Yield frames one at a time — O(1) memory."""
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise VideoReadError(f"Cannot open video: {video_path!r}")
-
-        frames = []
         frame_idx = 0
         try:
             while True:
@@ -20,12 +18,14 @@ class VideoDecoder:
                 if not ret:
                     break
                 if frame_idx % sample_rate == 0:
-                    frames.append(frame)
+                    yield frame
                 frame_idx += 1
         finally:
             cap.release()
 
-        return frames
+    def extract_frames(self, video_path: str, sample_rate: int = 1) -> list[np.ndarray]:
+        """Kept for test compatibility — use iter_frames for large videos."""
+        return list(self.iter_frames(video_path, sample_rate))
 
     def get_video_info(self, video_path: str) -> VideoInfo:
         """Return video metadata without extracting frames."""

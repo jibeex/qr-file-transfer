@@ -1,14 +1,11 @@
-"""QR file transfer decoder — FileDecoder, GracefulDegradation."""
+"""QR file transfer decoder — FileDecoder."""
 
 from __future__ import annotations
 
 import json
-import struct
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
-from qr_transfer.constants import CHUNK_HEADER_SIZE, CHUNK_MAGIC
 from qr_transfer.core.protocols import Chunk, QRData
 from qr_transfer.errors import (
     DecodingError,
@@ -22,10 +19,6 @@ from qr_transfer.utils.integrity import IntegrityUtil
 from qr_transfer.utils.validation import InputValidator
 from qr_transfer.video.decoder import VideoDecoder
 
-
-# ---------------------------------------------------------------------------
-# Result / metadata types
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Metadata:
@@ -69,55 +62,9 @@ class VerifyResult:
     metadata: Metadata | None = None
 
 
-# ---------------------------------------------------------------------------
-# Chunk parsing helpers
-# ---------------------------------------------------------------------------
-
 def _is_metadata(data: bytes) -> bool:
     return data.startswith(b"{")
 
-
-
-
-
-# ---------------------------------------------------------------------------
-# GracefulDegradation (§8.3)
-# ---------------------------------------------------------------------------
-
-class GracefulDegradation:
-    """Two-pass QR detection: normal pass, then aggressive preprocessing on failures."""
-
-    @staticmethod
-    def decode_with_fallback(
-        frames: list[np.ndarray],
-        detector: QRDetector,
-    ) -> list[tuple[int, list[QRData]]]:
-        results: list[tuple[int, list[QRData]]] = []
-        failed: list[int] = []
-
-        for i, frame in enumerate(frames):
-            qrs = detector.detect(frame)
-            if qrs:
-                results.append((i, qrs))
-            else:
-                failed.append(i)
-
-        if failed:
-            import cv2 as _cv2
-            for i in failed:
-                gray = _cv2.cvtColor(frames[i], _cv2.COLOR_BGR2GRAY)
-                denoised = _cv2.bilateralFilter(gray, 9, 75, 75)
-                _, thresh = _cv2.threshold(denoised, 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU)
-                qrs = detector.detect(_cv2.cvtColor(thresh, _cv2.COLOR_GRAY2BGR))
-                if qrs:
-                    results.append((i, qrs))
-
-        return results
-
-
-# ---------------------------------------------------------------------------
-# FileDecoder
-# ---------------------------------------------------------------------------
 
 class FileDecoder:
     """Decode a QR-transfer video back into the original file."""
@@ -140,13 +87,7 @@ class FileDecoder:
         src = InputValidator.validate_file_path(str(input_path))
         dst = InputValidator.validate_output_path(str(output_path), force=force)
 
-        frames = self._video.extract_frames(str(src))
-        if not frames:
-            raise DecodingError("No frames extracted from video.")
-
-        metadata, chunks = self._collect(
-            GracefulDegradation.decode_with_fallback(frames, self._get_detector())
-        )
+        metadata, chunks = self._stream_collect(str(src))
         if metadata is None:
             raise DecodingError("Metadata frame not found in video.")
 
@@ -160,7 +101,6 @@ class FileDecoder:
 
         file_data = self._reconstruct(chunks, metadata)
         FileOps.atomic_write(dst, file_data)
-
         return DecodingResult(
             output_path=dst,
             filename=metadata.filename,
@@ -171,13 +111,9 @@ class FileDecoder:
 
     def verify(self, input_path: str | Path, detailed: bool = False) -> VerifyResult:
         src = InputValidator.validate_file_path(str(input_path))
-        frames = self._video.extract_frames(str(src))
-        metadata, chunks = self._collect(
-            GracefulDegradation.decode_with_fallback(frames, self._get_detector())
-        )
+        metadata, chunks = self._stream_collect(str(src))
         if metadata is None:
             return VerifyResult(valid=False, total_chunks=0, decoded_chunks=0)
-
         missing = [i for i in range(metadata.total_chunks) if i not in chunks]
         return VerifyResult(
             valid=not missing,
@@ -189,7 +125,7 @@ class FileDecoder:
 
     def get_info(self, input_path: str | Path) -> Metadata:
         src = InputValidator.validate_file_path(str(input_path))
-        for frame in self._video.extract_frames(str(src)):
+        for frame in self._video.iter_frames(str(src)):
             for qr in self._get_detector().detect(frame):
                 if _is_metadata(qr.data):
                     try:
@@ -198,16 +134,27 @@ class FileDecoder:
                         pass
         raise DecodingError("Metadata frame not found in video.")
 
-    # ------------------------------------------------------------------
-
-    def _collect(
-        self,
-        frame_qr_pairs: list[tuple[int, list[QRData]]],
+    def _stream_collect(
+        self, video_path: str
     ) -> tuple[Metadata | None, dict[int, bytes]]:
+        """Process frames one at a time — O(1) memory regardless of video size."""
+        import cv2 as _cv2
+
+        detector = self._get_detector()
         metadata: Metadata | None = None
         chunks: dict[int, bytes] = {}
 
-        for _idx, qrs in frame_qr_pairs:
+        for frame in self._video.iter_frames(video_path):
+            qrs = detector.detect(frame)
+            if not qrs:
+                # fallback: bilateral denoise + Otsu threshold
+                gray = _cv2.cvtColor(frame, _cv2.COLOR_BGR2GRAY)
+                denoised = _cv2.bilateralFilter(gray, 9, 75, 75)
+                _, thresh = _cv2.threshold(
+                    denoised, 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU
+                )
+                qrs = detector.detect(_cv2.cvtColor(thresh, _cv2.COLOR_GRAY2BGR))
+
             for qr in qrs:
                 if _is_metadata(qr.data):
                     if metadata is None:
@@ -215,13 +162,18 @@ class FileDecoder:
                             metadata = Metadata.from_json(qr.data)
                         except (KeyError, json.JSONDecodeError):
                             pass
-                    continue
-                try:
-                    chunk = Chunk.unpack(qr.data)
-                    if chunk.header.chunk_index not in chunks:
-                        chunks[chunk.header.chunk_index] = chunk.data
-                except (ValueError, Exception):
-                    pass
+                else:
+                    try:
+                        chunk = Chunk.unpack(qr.data)
+                        idx = chunk.header.chunk_index
+                        if idx not in chunks:
+                            chunks[idx] = chunk.data
+                    except Exception:
+                        pass
+
+            # early exit once all chunks are collected
+            if metadata and len(chunks) == metadata.total_chunks:
+                break
 
         return metadata, chunks
 

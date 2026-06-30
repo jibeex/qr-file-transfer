@@ -8,8 +8,6 @@ from unittest import mock
 
 import pytest
 
-pyzbar = pytest.importorskip("pyzbar", reason="pyzbar not installed")
-
 from qr_transfer.core.encoder import FileEncoder
 from qr_transfer.utils.progress import ProgressTracker
 
